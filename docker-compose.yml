@@ -1,0 +1,45 @@
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: pnpm --filter @explainmotion/web start
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    depends_on:
+      - redis
+      - postgres
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: pnpm --filter @explainmotion/worker start
+    env_file:
+      - .env
+    depends_on:
+      - redis
+
+  # Redis and Postgres are reached over the internal compose network by service
+  # name (redis:6379, postgres:5432). Uncomment the ports to expose them on the
+  # host for inspection (pick non-conflicting host ports if you run a local DB).
+  redis:
+    image: redis:7
+    # ports:
+    #   - "6379:6379"
+
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: explainmotion
+      POSTGRES_PASSWORD: explainmotion
+      POSTGRES_DB: explainmotion
+    # ports:
+    #   - "5433:5432"
+    volumes:
+      - em-postgres:/var/lib/postgresql/data
+
+volumes:
+  em-postgres:

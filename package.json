@@ -1,0 +1,19 @@
+{
+  "name": "explainmotion",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "pnpm@9.15.4",
+  "scripts": {
+    "dev": "pnpm --filter @explainmotion/web dev",
+    "dev:worker": "pnpm --filter @explainmotion/worker dev",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "pnpm --filter @explainmotion/web lint",
+    "db:migrate": "pnpm --filter @explainmotion/web db:migrate",
+    "db:seed": "pnpm --filter @explainmotion/web db:seed"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.7",
+    "typescript": "^5.7.3"
+  }
+}

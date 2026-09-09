@@ -1,0 +1,49 @@
+{
+  "name": "@explainmotion/web",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "tsx lib/server/db/migrate.ts",
+    "db:seed": "tsx lib/server/db/seed.ts",
+    "e2e:render": "tsx scripts/e2e-render.ts"
+  },
+  "dependencies": {
+    "@explainmotion/ai": "workspace:*",
+    "@explainmotion/assets": "workspace:*",
+    "@explainmotion/layout": "workspace:*",
+    "@explainmotion/renderer": "workspace:*",
+    "@explainmotion/schema": "workspace:*",
+    "@explainmotion/shared": "workspace:*",
+    "@phosphor-icons/react": "^2.1.7",
+    "better-auth": "^1.6.15",
+    "bullmq": "^5.34.2",
+    "drizzle-orm": "^0.45.2",
+    "ioredis": "^5.4.2",
+    "next": "^15.1.6",
+    "pg": "^8.21.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "reactflow": "^11.11.4",
+    "zod": "^3.24.1",
+    "zustand": "^5.0.3"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.20.0",
+    "@types/react": "^19.0.7",
+    "@types/react-dom": "^19.0.3",
+    "autoprefixer": "^10.4.20",
+    "drizzle-kit": "^0.31.10",
+    "eslint": "^9.18.0",
+    "eslint-config-next": "^15.1.6",
+    "postcss": "^8.5.1",
+    "tailwindcss": "^3.4.17",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3"
+  }
+}
