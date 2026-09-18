@@ -1,5 +1,7 @@
 # Demo Prompts
 
+> Status: Demo ideas, not a claim of general prompt understanding. The current mock planner selects fixed money-transfer/onboarding examples. Use structured Mermaid or outlines for custom content; outputs remain silent.
+
 ## Demo 1 — Money transfer
 
 ```text

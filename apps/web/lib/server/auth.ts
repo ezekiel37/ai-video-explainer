@@ -3,9 +3,11 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { db } from "./db/client";
 import { account, session, user, verification } from "./db/auth-schema";
 
-export const auth = betterAuth({
-  baseURL: process.env.BETTER_AUTH_URL ?? "http://localhost:3000",
-  secret: process.env.BETTER_AUTH_SECRET ?? "dev-secret-change-me",
+import { authConfiguration } from "./auth-config";
+
+function createAuth() {
+  return betterAuth({
+  ...authConfiguration(),
   database: drizzleAdapter(db, {
     provider: "pg",
     schema: { user, session, account, verification }
@@ -13,4 +15,9 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: true
   }
-});
+  });
+}
+let instance: ReturnType<typeof createAuth> | undefined;
+export function getAuth() {
+  return instance ??= createAuth();
+}

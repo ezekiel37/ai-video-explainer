@@ -1,14 +1,2 @@
-import { seedDemoProject } from "../store";
-import { pool } from "./client";
-
-/** Seed the demo project. Run with `pnpm db:seed`. */
-async function main() {
-  await seedDemoProject();
-  console.log("demo project seeded");
-  await pool.end();
-}
-
-main().catch((error) => {
-  console.error(error);
-  process.exit(1);
-});
+// The public demo is client-only. Never create a shared mutable database project.
+console.log("No seed required. Sign in to create your own project.");

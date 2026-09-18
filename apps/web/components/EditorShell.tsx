@@ -4,6 +4,8 @@ import { ArrowDown, ArrowUp, CheckCircle, FilmSlate, Play, Sparkle, Stack, Warni
 import { ScenePreview } from "@explainmotion/renderer";
 import { validateSceneGraph } from "@explainmotion/schema";
 import { useEditorStore } from "@/lib/store";
+import { ProjectControls } from "./ProjectControls";
+import { useState } from "react";
 import { SceneFlowPreview } from "./SceneFlowPreview";
 
 const statusLabels = {
@@ -19,6 +21,7 @@ const statusLabels = {
 
 export function EditorShell() {
   const {
+    busy, pendingRender, resumeRender,
     prompt,
     mermaid,
     graph,
@@ -34,12 +37,17 @@ export function EditorShell() {
     moveScene,
     startRender
   } = useEditorStore();
+  const [orientation, setOrientation] = useState<"landscape" | "portrait">("landscape");
+  const rendering = ["queued", "rendering", "uploading"].includes(render.status);
   const selectedScene = graph.scenes.find((scene) => scene.id === selectedSceneId) ?? graph.scenes[0];
   const validation = validateSceneGraph(graph);
   const totalDuration = graph.scenes.reduce((total, scene) => total + scene.durationSeconds, 0);
 
   return (
     <main className="min-h-[100dvh] px-4 py-4 text-ink md:px-6 md:py-6">
+      <ProjectControls />
+      {pendingRender && <button className="mx-auto mb-4 block rounded-md bg-accent px-4 py-2 text-white" disabled={busy} onClick={() => void startRender()}>Retry render submission</button>}
+      <fieldset disabled={busy || !!pendingRender} className="min-w-0 border-0 p-0">
       <div className="mx-auto grid max-w-[1500px] gap-4 xl:grid-cols-[330px_minmax(0,1fr)_360px]">
         <aside className="rounded-lg border border-zinc-200/80 bg-white/90 p-4 shadow-diffusion">
           <div className="flex items-start justify-between gap-4">
@@ -48,13 +56,14 @@ export function EditorShell() {
               <h1 className="mt-2 text-2xl font-semibold tracking-tight">MVP Studio</h1>
             </div>
             <span className="rounded-md border border-emerald-900/15 bg-emerald-50 px-2 py-1 font-mono text-xs text-accent">
-              landscape
+              {orientation}
             </span>
           </div>
 
           <label className="mt-6 grid gap-2">
             <span className="text-sm font-medium">Explanation prompt</span>
             <textarea
+              maxLength={20000}
               value={prompt}
               onChange={(event) => setPrompt(event.target.value)}
               className="min-h-40 resize-none rounded-md border border-zinc-200 bg-zinc-50 p-3 text-sm leading-relaxed outline-none transition focus:border-accent focus:bg-white"
@@ -68,12 +77,13 @@ export function EditorShell() {
             className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-md bg-ink px-4 py-3 text-sm font-semibold text-white hover:bg-zinc-800"
           >
             <Sparkle size={17} weight="bold" />
-            Generate scenes
+            Generate demo scenes
           </button>
 
           <label className="mt-5 grid gap-2">
             <span className="text-sm font-medium">Or paste a diagram or outline</span>
             <textarea
+              maxLength={20000}
               value={mermaid}
               onChange={(event) => setMermaid(event.target.value)}
               spellCheck={false}
@@ -140,9 +150,11 @@ export function EditorShell() {
               </div>
             </div>
 
-            <div className="mt-4 grid min-h-[420px] overflow-hidden rounded-lg border border-zinc-200 bg-paper lg:grid-cols-[1fr_0.72fr]">
-              <div className="min-h-[420px] p-2">
-                {selectedScene ? <ScenePreview scene={selectedScene} activeNodeId={selectedScene.nodes[0]?.id} /> : null}
+            <label className="mt-3 flex items-center gap-2 text-sm">Preview format<select className="rounded-md border p-2" value={orientation} onChange={event => setOrientation(event.target.value as typeof orientation)}><option value="landscape">Landscape 16:9</option><option value="portrait">Portrait 9:16</option></select></label>
+            {!validation.success && <ul role="alert" className="mt-3 text-sm text-red-700">{validation.error.issues.map((issue, index) => <li key={index}>{issue.path.join(".")}: {issue.message}</li>)}</ul>}
+            <div className="mt-4 grid min-w-0 overflow-hidden rounded-lg border border-zinc-200 bg-paper">
+              <div className="min-w-0 p-2">
+                {selectedScene ? <ScenePreview orientation={orientation} scene={selectedScene} activeNodeId={selectedScene.nodes[0]?.id} /> : null}
               </div>
               <div className="min-h-[360px] border-t border-zinc-200 bg-white lg:border-l lg:border-t-0">
                 {selectedScene ? <SceneFlowPreview scene={selectedScene} /> : null}
@@ -154,7 +166,7 @@ export function EditorShell() {
             <div className="rounded-lg border border-zinc-200/80 bg-white/90 p-4">
               <div className="flex items-center gap-2">
                 <Stack size={18} weight="bold" />
-                <h3 className="text-sm font-semibold">Project contract</h3>
+                <h3 className="text-sm font-semibold">Project details</h3>
               </div>
               <dl className="mt-4 grid gap-3 text-sm">
                 <div className="flex justify-between gap-4 border-b border-zinc-100 pb-2">
@@ -171,7 +183,7 @@ export function EditorShell() {
                 </div>
                 <div className="flex justify-between gap-4">
                   <dt className="text-zinc-500">Audio</dt>
-                  <dd className="font-medium">{graph.voice.provider}</dd>
+                  <dd className="font-medium">Silent (voiceover planned)</dd>
                 </div>
               </dl>
             </div>
@@ -185,6 +197,7 @@ export function EditorShell() {
                 <div className="flex flex-wrap items-center gap-2">
                   <button
                     type="button"
+                    disabled={rendering || !validation.success}
                     onClick={() => startRender({ format: "mp4", orientation: "landscape" })}
                     className="inline-flex items-center gap-2 rounded-md bg-accent px-3 py-2 text-sm font-semibold text-white hover:bg-[#1f5f4f]"
                   >
@@ -193,6 +206,7 @@ export function EditorShell() {
                   </button>
                   <button
                     type="button"
+                    disabled={rendering || !validation.success}
                     onClick={() => startRender({ format: "mp4", orientation: "portrait" })}
                     className="inline-flex items-center gap-1 rounded-md border border-accent/30 bg-white px-3 py-2 text-sm font-semibold text-accent hover:border-accent"
                   >
@@ -200,6 +214,7 @@ export function EditorShell() {
                   </button>
                   <button
                     type="button"
+                    disabled={rendering || !validation.success}
                     onClick={() => startRender({ format: "gif", orientation: "landscape" })}
                     className="inline-flex items-center gap-1 rounded-md border border-accent/30 bg-white px-3 py-2 text-sm font-semibold text-accent hover:border-accent"
                   >
@@ -208,7 +223,7 @@ export function EditorShell() {
                 </div>
               </div>
 
-              <div className="mt-4 h-2 overflow-hidden rounded-full bg-zinc-100">
+              <div role="progressbar" aria-label="Render progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={render.progress} className="mt-4 h-2 overflow-hidden rounded-full bg-zinc-100">
                 <div className="h-full bg-accent transition-all duration-500" style={{ width: `${render.progress}%` }} />
               </div>
 
@@ -217,8 +232,9 @@ export function EditorShell() {
                 <span className="font-mono text-zinc-500">{render.progress}%</span>
               </div>
 
+              {rendering && <button type="button" className="mt-3 rounded-md border px-3 py-2 text-sm" onClick={resumeRender}>Check status</button>}
               {render.outputUrl ? (
-                <p className="mt-3 rounded-md bg-emerald-50 p-3 text-sm text-accent">Output ready at {render.outputUrl}</p>
+                <a className="mt-3 block rounded-md bg-emerald-50 p-3 text-sm font-semibold text-accent underline" href={`${render.outputUrl}?download=1`}>Download completed render</a>
               ) : null}
             </div>
           </div>
@@ -307,6 +323,7 @@ export function EditorShell() {
           )}
         </aside>
       </div>
+      </fieldset>
     </main>
   );
 }

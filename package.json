@@ -10,7 +10,9 @@
     "typecheck": "pnpm -r typecheck",
     "lint": "pnpm --filter @explainmotion/web lint",
     "db:migrate": "pnpm --filter @explainmotion/web db:migrate",
-    "db:seed": "pnpm --filter @explainmotion/web db:seed"
+    "db:seed": "pnpm --filter @explainmotion/web db:seed",
+    "test": "pnpm --filter @explainmotion/web test",
+    "test:integration": "pnpm --filter @explainmotion/web test:integration"
   },
   "devDependencies": {
     "@types/node": "^22.10.7",

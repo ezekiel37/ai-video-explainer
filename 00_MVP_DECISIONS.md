@@ -1,130 +1,29 @@
 # MVP Decisions
 
-This file is the canonical contract for the first ExplainMotion build. If another document disagrees with this file, this file wins.
+Canonical current technical contract. Product: ExplainMotion, a constrained process explainer for developers and product teams. Users edit meaning and order, not pixels.
 
-## Product Scope
+## Implemented boundary
 
-- Product name: ExplainMotion
-- First wedge: technical and product process explainers
-- First usable output: a 30-90 second animated process explainer
-- User edits meaning, not pixels
-- No free-form design canvas in MVP
+- Public demo preview and signed-in project save/reopen.
+- Prompt-based fixed demo generation, Mermaid flowchart subset and heuristic outlines.
+- Scene titles, narration text, labels, pacing and order editing.
+- Validated JSON, up to eight scenes, eight nodes and twelve edges per scene, maximum 90 seconds total. The 30–90 second duration target is planning metadata; shorter imported clips are allowed.
+- Shared horizontal/step placement, frame-driven Remotion rendering, MP4 landscape/portrait and landscape GIF.
+- Silent output. Narration is caption text, not synthesized speech.
+- Three free renders per UTC calendar month, one active job per account, watermark on. No paid entitlement can currently be purchased.
 
-## MVP Feature Boundary
+## Technical contract
 
-Include:
+Next.js App Router owns UI and API; a separate Node/BullMQ worker renders. PostgreSQL/Drizzle owns projects, auth and durable render records. Redis transports work. Better Auth owns singular `user`, `session`, `account`, `verification` tables with **text** IDs. Projects and render jobs use UUIDs. Server routes enforce ownership before returning data or causing side effects.
 
-- prompt input
-- storyboard generation mock
-- scene graph generation and validation
-- editable scene title, narration, labels, icons, pacing, and scene order
-- deterministic layout
-- Remotion preview/render path
-- render job queue
-- MP4 landscape export
-- mock TTS/audio for the first build
+Edits include a version and use optimistic concurrency. Render requests include a caller-generated UUID; retries reuse it and the same project version/options. Reservations and quota checks run under an account row lock. Accepted jobs contain immutable scene graph snapshots. The worker reconstructs missing Redis entries from PostgreSQL and fences result updates with a lease token.
 
-Defer:
+Local storage requires a directory shared by web and worker. R2/S3 buckets stay private; output keys never become unauthenticated public links. Production startup requires an explicit strong auth secret and configured database/Redis/media environment.
 
-- GIF/WebM export
-- vertical export
-- billing
-- marketplace
-- collaboration
-- brand kits
-- custom uploaded SVGs
-- AI-generated images
-- photography, education, and business-specific packs
-- word-level voice sync
-- full timeline editor
+## Rendering contract
 
-## Technical Decisions
+`packages/renderer` uses Remotion frames and SVG. The GSAP helper exists but is not connected to the current compositions. Future effects must remain frame-driven. The model must never supply raw HTML/SVG/CSS/JavaScript or pixel coordinates. Callouts and some animation enum values are schema vocabulary ahead of renderer support; see the rendering document before using them.
 
-- Monorepo package manager: pnpm
-- Frontend: Next.js App Router, TypeScript, Tailwind CSS, shadcn/ui
-- Editor state: Zustand
-- Scene preview: React Flow for structured preview only
-- Backend: Node.js, TypeScript, Fastify
-- Validation: Zod
-- Database: **self-hosted PostgreSQL** on the Hetzner/Contabo VPS (no Supabase)
-- Auth: **Better Auth** (self-hosted)
-- ORM: **Drizzle** (SQL-native, light Docker image; replaces Prisma)
-- Queue: BullMQ
-- Redis: Hetzner/Contabo VPS for MVP
-- Renderer: Remotion + React + SVG + **GSAP** (frame-driven, deterministic — see Renderer Contract)
-- Layout: hand-rolled/Dagre for MVP; ELK.js deferred until free-graph layouts
-- Storage: Cloudflare R2 for rendered media when configured; local placeholder URLs during scaffolding
-- Email: **Brevo** (transactional + lifecycle; also SMTP relay for auth emails)
-- Deployment: app + API + Redis + Postgres + worker on a single Hetzner/Contabo VPS via Docker for MVP
+## Deferred
 
-## API Contract
-
-- All backend routes use the `/api` prefix.
-- Project routes:
-  - `POST /api/projects`
-  - `POST /api/projects/:id/plan`
-  - `PATCH /api/projects/:id/scene-graph`
-  - `POST /api/projects/:id/render`
-  - `GET /api/projects/:id`
-- Render job route:
-  - `GET /api/render-jobs/:id`
-
-## ID Contract
-
-- Database IDs are UUIDs.
-- API examples should use UUID-looking IDs, not short prefixed placeholders.
-- Scene-local IDs may use readable strings such as `scene_01`, `user_a`, and `edge_01`.
-
-## Scene Graph Contract
-
-- The scene graph is the source of truth for rendering.
-- The LLM may produce structured intent only.
-- The LLM must not produce raw HTML, SVG, CSS, JavaScript, or final pixel coordinates.
-- Scene graphs must validate before saving or rendering.
-
-Initial supported layouts:
-
-- `horizontal-flow`
-- `step-sequence`
-
-Deferred layouts:
-
-- `vertical-flow`
-- `hub-and-spoke`
-- `compare-two-columns`
-
-Initial visual packs:
-
-- `core`
-- `tech-product`
-
-Initial style:
-
-- `minimal-tech`
-
-## Auth And Database Contract
-
-- Auth is **self-hosted via Better Auth**; it owns the `users` table (id is a UUID).
-- Application tables reference `users(id)`.
-- User-owned rows should use cascade delete unless there is a specific retention requirement.
-- Keep the data layer **vanilla Postgres** (no platform-specific features) so hosting stays portable.
-
-## Renderer Contract (animation)
-
-- The renderer is **deterministic**: every frame is a pure function of the frame number.
-- GSAP is used for premium effects — **DrawSVG** (line-draw arrows/diagrams), **MorphSVG**
-  (shape morphing), **MotionPath** (objects along curved paths), and fine-grained easing.
-- GSAP timelines MUST be **frame-driven**: created `paused`, then seeked per frame from
-  Remotion's `useCurrentFrame()` (e.g. `tl.seek(frame / fps)`). Never let GSAP run on its
-  own real-time/RAF clock — that breaks headless SSR rendering.
-- GSAP powers **preset** animations only. Users never touch it (edit meaning, not pixels).
-- GSAP + all plugins are free for commercial use (Webflow/GreenSock, since April 2025).
-
-## Build Priority
-
-1. Prove scene graph to deterministic rendered animation.
-2. Add prompt to storyboard and scene graph mocks.
-3. Add validation and repair/fallback logic.
-4. Add editor for meaning-level changes.
-5. Add queued render path and MP4 landscape output.
-6. Replace mock TTS with real TTS after rendering is reliable.
+Real LLM planning, TTS/audio synchronization, richer animation semantics, brand kits, billing, collaboration, arbitrary uploads, custom SVG and free-form canvas editing. Verify account recovery, email verification, retention, backups and rate controls before a public paid launch. See ROADMAP.md for sequencing.

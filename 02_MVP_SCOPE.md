@@ -1,94 +1,11 @@
 # MVP Scope
 
-## MVP goal
+The first workflow is Mermaid or structured outline → editable scenes → silent animated process video. Prompt generation currently selects a fixed demo; it does not interpret arbitrary requests with an AI model.
 
-Build a working prototype that can generate a 30–90 second animated explanation video from a prompt.
+Implemented: horizontal-flow and step-sequence layouts; card/icon shapes and directional edges; scene titles, caption/narration text, label, duration and order edits; signed-in saving/reopening; MP4 landscape/portrait and landscape GIF. Preview is public and local. Server rendering requires an account.
 
-For canonical build decisions, see `00_MVP_DECISIONS.md`.
+Imports preserve the submitted source and full node text in metadata. Long visible labels are abbreviated. Large imports are split into scenes; inputs that exceed eight scenes or 90 seconds are rejected rather than silently shortened. Mermaid supports common node wrappers and explicit connections; subgraphs and unsupported expressions require simplification.
 
-## Supported video type in v1
+Not yet implemented: synthesized voice, full Mermaid semantics, arbitrary diagram layouts, full animation-timeline editing, rendered callouts, billing, custom uploaded assets, themes, collaboration and brand kits. The source schema accepting a field does not by itself imply a visual implementation.
 
-Start with one category:
-
-**Process explainer videos**
-
-Examples:
-
-- how money transfer works
-- how user onboarding works
-- how an API request moves through services
-- how a customer support workflow works
-- how an order moves from checkout to delivery
-
-## Supported layouts
-
-Only support these for the first usable build:
-
-1. Horizontal flow
-2. Step-by-step sequence
-
-Defer these until after the first render path is reliable:
-
-- Vertical flow
-- Hub-and-spoke
-- Before/after comparison
-
-Do not support arbitrary diagrams yet.
-
-## Supported primitives
-
-- card
-- box
-- label
-- arrow
-- avatar
-- icon
-- badge
-- progress bar
-- highlight ring
-- callout
-- checkmark
-- warning marker
-
-## Supported animation presets
-
-- fade in
-- slide in
-- pulse
-- highlight
-- arrow trace
-- path movement
-- zoom focus
-- scene cut
-- scene pan
-- success reveal
-
-## Export formats
-
-MVP:
-
-- MP4 landscape 16:9
-
-Later:
-
-- MP4 vertical 9:16
-- GIF
-- WebM
-- transparent overlay
-- SVG/Lottie export
-
-## Deliberately excluded from MVP
-
-- real-time collaborative editing
-- marketplace
-- custom user-uploaded SVGs
-- brand kits
-- full timeline editor
-- manual path editing
-- multiple animation styles
-- complex character animation
-- AI-generated images
-- AI-generated arbitrary layouts
-- photography-specific packs
-- education-specific packs
-- business-specific packs
+The canonical limits and stack are in [00_MVP_DECISIONS.md](00_MVP_DECISIONS.md).

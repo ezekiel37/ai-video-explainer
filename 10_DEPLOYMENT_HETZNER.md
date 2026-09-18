@@ -1,119 +1,29 @@
-# Hetzner Deployment Plan
+# Deployment
 
-## Recommended MVP deployment
+The supplied Compose configuration runs Next.js web/API, a render worker, PostgreSQL 16 and Redis 7. It binds web to host loopback port 3000; use a TLS reverse proxy for public access. Database/Redis have no public port bindings.
 
-Use Hetzner for the API and rendering worker.
+## First deployment
 
-Suggested initial setup:
+1. Copy `.env.example` to `.env`; set a randomly generated `BETTER_AUTH_SECRET` (at least 32 characters) and the public `BETTER_AUTH_URL`. Leave `NEXT_PUBLIC_APP_URL` blank for same-origin browser auth. Compose supplies internal database/Redis URLs and the shared media path.
+2. Build and start data services:
 
-```text
-Hetzner VPS
-  ├── Docker
-  ├── API server
-  ├── render worker
-  ├── Redis
-  ├── Nginx/Caddy
-  └── FFmpeg/Chromium dependencies
+```bash
+docker compose build
+docker compose up -d postgres redis
+docker compose run --rm web pnpm --filter @explainmotion/web db:migrate
+docker compose up -d web worker
 ```
 
-External services:
+3. Open the studio, create an account, import/save a project and render. Confirm the authenticated download works. Ensure the worker can download Remotion's headless Chrome on first render, or pre-provision it in your image.
 
-```text
-Supabase
-  ├── Auth
-  ├── Postgres
-  └── optional storage
+The image installs Chromium system libraries. Local media uses `em-renders`, mounted read-only in web and writable in worker. Redis uses append-only persistence; PostgreSQL remains authoritative for reservations/results after Redis loss. Object storage requires `STORAGE_PROVIDER=r2` or `s3`, bucket, endpoint, access key, secret and region. Keep the bucket private and use matching configuration in both services. There is no public-URL fallback for missing credentials.
 
-Cloudflare R2
-  └── video/audio/object storage
-```
+Startup validates production secrets and required service/media configuration. Secrets belong in runtime environment, not Docker build args or committed files. The included internal database password is a development default: change the database credentials and both service URLs together for your deployment.
 
-## Why not Vercel for rendering
+## Upgrades and operations
 
-Vercel is fine for the frontend.
+Back up PostgreSQL and local media before migrations. Stop old web/worker versions before applying 0002: queue payloads changed from graph objects to durable job IDs, and legacy anonymous projects become inaccessible. Drain old jobs first. Deploy web and worker together, apply migrations once, then restart. Do not remove persistent volumes to upgrade.
 
-But video rendering is CPU-heavy and long-running.
+Monitor queued age, stale heartbeats, worker failures, media capacity and database backups. Restrict outbound worker access appropriately, set CPU/memory/render concurrency, and test restore procedures. Automatic media retention and orphan cleanup are not yet implemented. Remote provider/Brevo delivery and real worker renders need deployment-specific verification.
 
-Rendering should run on a worker:
-
-- no serverless timeout issues
-- easier FFmpeg setup
-- easier queue management
-- predictable costs
-- better control over Chromium/Puppeteer dependencies
-
-## Docker services
-
-```yaml
-services:
-  api:
-    build: .
-    command: pnpm start:api
-    ports:
-      - "3001:3001"
-    env_file:
-      - .env
-
-  worker:
-    build: .
-    command: pnpm start:worker
-    env_file:
-      - .env
-    depends_on:
-      - redis
-
-  redis:
-    image: redis:7
-    ports:
-      - "6379:6379"
-```
-
-## Basic Nginx/Caddy role
-
-Use Caddy if you want simpler SSL.
-
-Routes:
-
-```text
-api.yourdomain.com → API server
-app.yourdomain.com → frontend
-```
-
-## Worker responsibilities
-
-The worker should:
-
-1. Pull render job from BullMQ.
-2. Fetch project scene graph.
-3. Generate or fetch TTS audio.
-4. Build Remotion bundle if needed.
-5. Render MP4.
-6. Upload video to storage.
-7. Update job status.
-
-## Job statuses
-
-```text
-queued
-planning
-generating_voiceover
-rendering
-uploading
-completed
-failed
-```
-
-## Scaling later
-
-When render demand grows:
-
-```text
-API server
-Redis
-Worker 1
-Worker 2
-Worker 3
-Object storage
-```
-
-Do not over-engineer this on day one.
+For local host development, provide your own reachable PostgreSQL/Redis or a local Compose override exposing loopback ports. Export variables into each process; root `.env` is consumed by Compose, not automatically by all pnpm scripts. Use the same absolute `RENDER_OUTPUT_DIR` for web and worker.

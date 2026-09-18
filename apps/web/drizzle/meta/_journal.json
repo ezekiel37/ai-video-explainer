@@ -15,6 +15,13 @@
       "when": 1780940029680,
       "tag": "0001_dark_rick_jones",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1789747592290,
+      "tag": "0002_durable_owned_renders",
+      "breakpoints": true
     }
   ]
 }

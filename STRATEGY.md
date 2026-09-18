@@ -1,5 +1,7 @@
 # ExplainMotion — Strategy
 
+> Strategy hypotheses, not shipped features or validated market research. Pricing, audience size, conversion, cost and defensibility need evidence. Current capabilities and free allowances are defined in README.md and ROADMAP.md.
+
 > Canonical product/business strategy. Supersedes the old business docs
 > (`01_PRODUCT_BRIEF`, `20_BUSINESS_AND_GTM`, `22_MONETIZATION_AND_PACK_STRATEGY`).
 > For technical contracts see `00_MVP_DECISIONS.md`, `05_SCENE_GRAPH_SCHEMA.md`, `12_API_DESIGN.md`.
@@ -37,7 +39,7 @@ anyone who builds or writes things but cannot animate.
 | Mermaid / draw.io | Static diagrams | No motion, no narration, not shareable as media |
 | **ExplainMotion** | **Structured input → auto light-animated, accurate, editable, re-renderable explainer** | the empty seat |
 
-The moat is the **scene graph as source of truth**: the explainer is a versionable,
+A potential differentiation hypothesis is the **scene graph as source of truth**: the explainer is a versionable,
 re-renderable file, not a throwaway MP4. Canva can't automate it; Veo can't make it
 accurate; avatar tools can't show the concept itself.
 
@@ -51,8 +53,8 @@ The single job-to-be-done:
 | Audience | Validated pain | Their input | Where they publish |
 |---|---|---|---|
 | **Tech media / dev builders** (beachhead) | Diagrams go stale; no fast path from diagram → narrated video | Mermaid / diagram / spec | LinkedIn, X, HN, README, docs |
-| **Founders / indie hackers** | "90% fail at distribution, not product"; can't make a product explainer without hiring | PRD / feature / product flow | Product Hunt, launch posts, landing pages |
-| **Content creators** | "70% cite production time as the biggest hurdle"; demand for animated content outruns skills/budget | Blog post / script / thread | Reels, Shorts, TikTok, YouTube |
+| **Founders / indie hackers** | Distribution is a proposed pain point; can't make a product explainer without hiring | PRD / feature / product flow | Product Hunt, launch posts, landing pages |
+| **Content creators** | Production time is a proposed pain point; demand for animated content outruns skills/budget | Blog post / script / thread | Reels, Shorts, TikTok, YouTube |
 
 Same engine. Only the **input adapter** and **output preset** differ per audience.
 
@@ -78,7 +80,7 @@ Same engine. Only the **input adapter** and **output preset** differ per audienc
    │ (launch) │ (Reels)  │ (X/LI/README│ (LinkedIn/IG)    │
    └──────────┴──────────┴─────────────┴──────────────────┘
 
-        FLAT PRICING: unlimited explainers, no credits
+        PROPOSED PRICING: flat plans with measured usage limits
 ```
 
 **One engine. Many doors in. Many formats out. A re-render loop wrapping it.**
@@ -94,7 +96,7 @@ Same engine. Only the **input adapter** and **output preset** differ per audienc
    not first creation. Update the source → one click → new video / new format.
    Avatar tools structurally cannot do this; their output is opaque.
 4. **Price against the trap.** Competitors' loudest complaint is credit anxiety
-   ("unlimited" that burns budget 4x). Flat, no-credit pricing is a marketed feature.
+   ("unlimited" that burns budget 4x). Flat pricing is a hypothesis to test after measuring compute cost.
 5. **Narrow the beachhead, not the ceiling.** Enter through one audience; expand
    across the others on the same engine.
 
@@ -119,7 +121,7 @@ Flat, no credits. Meter the **free tier by video count**, never per-minute.
 | Tier | Price | Who | Gate |
 |---|---|---|---|
 | **Free** | $0 | trial / virality | 3 videos/mo, 720p, watermark, basic voice |
-| **Pro** | **$29/mo** | solo dev / founder / creator | unlimited, 1080p, no watermark, real TTS, all formats |
+| **Pro** | **$29/mo** | solo dev / founder / creator | proposed usage allowance (TBD), planned 1080p/TTS, no watermark |
 | **Team** | **$99/mo** (3 seats) | product / SaaS teams | brand colors, shared library, priority render |
 | **API / self-host** (later) | usage | embed in docs/pipelines | render API |
 

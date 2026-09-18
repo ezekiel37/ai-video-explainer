@@ -1,5 +1,7 @@
 # Asset Pack System
 
+> Status: Design proposal. The current implementation uses curated metadata and inline icon/shape rendering. Pack installation, uploads and an asset marketplace are not implemented.
+
 ## Why asset packs matter
 
 Asset packs prevent the LLM from inventing inconsistent visuals.

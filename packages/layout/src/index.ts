@@ -11,7 +11,7 @@ export type PositionedScene = Omit<Scene, "nodes"> & {
 
 /** Card dimensions are the single source of truth for layout + arrow anchoring. */
 export const CARD_WIDTH = 154;
-export const CARD_HEIGHT = 88;
+export const CARD_HEIGHT = 124;
 
 export type LayoutOptions = {
   /** Usable stage width in px (horizontal-flow). */
@@ -21,7 +21,7 @@ export type LayoutOptions = {
 };
 
 const HORIZONTAL_SPACING = 220;
-const STEP_SPACING = 132;
+const STEP_SPACING = 156;
 const MARGIN = 8;
 
 /**
@@ -38,7 +38,7 @@ export function layoutScene(scene: Scene, options: LayoutOptions = {}): Position
     if (scene.layout === "horizontal-flow") {
       const track = Math.max(0, width - CARD_WIDTH - MARGIN * 2);
       const spacing = count > 1 ? Math.min(HORIZONTAL_SPACING, track / (count - 1)) : 0;
-      return { ...node, x: MARGIN + index * spacing, y: index % 2 === 0 ? 110 : 210 };
+      return { ...node, x: MARGIN + index * spacing, y: index % 2 === 0 ? 90 : 250 };
     }
 
     const track = Math.max(0, height - CARD_HEIGHT);

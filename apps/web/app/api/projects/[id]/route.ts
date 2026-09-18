@@ -1,20 +1,14 @@
 import { z } from "zod";
-import { getProject } from "@/lib/server/store";
+import { requireProject, requireUser } from "@/lib/server/access";
+import { latestRender } from "@/lib/server/renders";
 import { errorResponse } from "@/lib/server/http";
-
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { id } = await params;
-    z.string().uuid().parse(id);
-    const project = await getProject(id);
-    if (!project) {
-      return Response.json({ message: "Project not found" }, { status: 404 });
-    }
-    return Response.json(project);
-  } catch (error) {
-    return errorResponse(error);
-  }
+    const user = await requireUser(request);
+    const id = z.string().uuid().parse((await params).id);
+    const project = await requireProject(id, user.id);
+    return Response.json({ ...project, latestRender: await latestRender(id, user.id) });
+  } catch (error) { return errorResponse(error); }
 }

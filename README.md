@@ -1,118 +1,56 @@
-# Programmable Explanation Videos — MVP Build Pack
+# ExplainMotion
 
-## Canonical documents
+ExplainMotion turns structured process descriptions into editable animated explainers. The initial audience is developers and product teams importing Mermaid flowcharts or short outlines.
 
-- **Strategy / business / positioning:** `STRATEGY.md` (supersedes the old brief, GTM, and monetization docs).
-- **Build order:** `ROADMAP.md` (supersedes the old 30-day plan).
-- **Technical MVP contract:** `00_MVP_DECISIONS.md`. If another technical document disagrees with it, the decisions file wins.
+## Current implementation
 
-## Product definition
+- Next.js studio and API, Better Auth email/password accounts, Drizzle/PostgreSQL storage.
+- Public local preview; sign-in required for saving, reopening and server rendering.
+- A deterministic prompt demo plus Mermaid/outline import. No external AI generation yet.
+- Scene title, narration text, labels, pacing and ordering edits; explicit save with conflict detection.
+- Remotion MP4 (1280×720 landscape or 720×1280 portrait) and landscape GIF. Exports are currently silent.
+- BullMQ worker with durable PostgreSQL job records, account-scoped status/downloads, idempotent submission and three free renders per UTC calendar month. Failed renders release the allowance; all accounts currently use the free plan.
+- Private local media or private R2/S3 objects, streamed through authenticated downloads.
 
-A tool that turns a written explanation into a short animated visual explanation video.
+This is a prototype. TTS, billing, email verification/recovery and production operating procedures remain release work. See [ROADMAP.md](ROADMAP.md) for scope and [CODEX_HANDOFF.md](CODEX_HANDOFF.md) for verification results.
 
-Not Canva.
-Not After Effects.
-Not a generic AI video generator.
+## Repository
 
-The product is a constrained explanation engine:
+| Directory | Responsibility |
+|---|---|
+| `apps/web` | Next.js UI, authentication, API and migrations |
+| `apps/worker` | BullMQ processing, durable recovery, rendering and storage |
+| `packages/schema` | Zod scene contract |
+| `packages/ai` | Deterministic prompt demo and import adapters |
+| `packages/layout` | Shared deterministic placement |
+| `packages/renderer` | React/SVG preview and frame-driven Remotion exports |
+| `packages/assets` | Curated asset metadata |
+| `packages/shared` | Queue and status types |
 
-> User describes a process → system converts it into scenes → scenes become animated boxes, arrows, icons, avatars, voiceover, and video export.
+## Development
 
-## First positioning
-
-**Programmable explanation videos for technical and product process explainers.**
-
-The core promise:
-
-> Explain anything visually in minutes.
-
-## MVP constraint
-
-Version 1 must stay narrow:
-
-- 30–90 second videos
-- one default visual style: `minimal-tech`
-- core + tech/product visual packs only
-- controlled SVG/icon packs
-- no free-form canvas editing
-- no arbitrary LLM-generated HTML/SVG
-- structured scene JSON as the source of truth
-- Remotion + GSAP rendering pipeline
-- Hetzner worker for rendering
-- MP4 landscape export first
-
-## Primary users
-
-Start with users who already feel the pain of explaining abstract workflows:
-
-1. Startup founders creating product walkthroughs
-2. SaaS teams creating onboarding videos
-3. Technical creators explaining systems
-4. Educators creating short visual lessons
-5. Product managers explaining flows internally
-
-Avoid serving everyone at first.
-
-## Core product loop
-
-1. User enters a detailed explanation.
-2. AI converts it into a storyboard.
-3. User reviews scenes and narration.
-4. System generates animation timeline.
-5. TTS voiceover is generated.
-6. Renderer produces video.
-7. User exports MP4.
-
-## Current scaffold
-
-The first build is now structured as a pnpm monorepo:
-
-```text
-apps/
-  web/      Next.js MVP studio
-  api/      Fastify API scaffold
-  worker/   BullMQ worker scaffold
-packages/
-  schema/   Zod scene graph contract
-  ai/       mock storyboard and scene graph generation
-  assets/   core + tech/product asset metadata
-  layout/   deterministic MVP layout helpers
-  renderer/ React/SVG preview and Remotion root
-  shared/   queue/status helpers
-```
-
-## Local development
-
-Install dependencies:
+Use Node 22+ and pnpm 9.15.4. `pnpm install --frozen-lockfile`, then `pnpm dev` runs the public preview. For accounts and renders, provide PostgreSQL and Redis and load the variables from `.env.example` into each process. Use the same absolute `RENDER_OUTPUT_DIR` for web and worker; merely copying a root `.env` does not export it to all workspace scripts.
 
 ```bash
-pnpm install
-```
-
-Run the web studio:
-
-```bash
+pnpm db:migrate
 pnpm dev
-```
-
-Run the API:
-
-```bash
-pnpm dev:api
-```
-
-Run the worker with Redis available:
-
-```bash
+# Separate terminal, with the same environment:
 pnpm dev:worker
 ```
 
-The web app currently supports the MVP vertical slice:
+`db:seed` is a no-op: the public demo stays client-side. Create an account and save your project in the studio. For a complete container setup, follow [10_DEPLOYMENT_HETZNER.md](10_DEPLOYMENT_HETZNER.md).
 
-- prompt input
-- mock storyboard and scene graph generation
-- `horizontal-flow` and `step-sequence` previews
-- meaning-level scene editing
-- scene graph validation feedback
-- simulated render job progress
-- landscape MP4 output placeholder
+## Checks
+
+```bash
+pnpm typecheck
+pnpm lint
+pnpm test
+pnpm build
+```
+
+`pnpm test:integration` needs a running web server and migrated test database, with the worker stopped. It creates and cleans up isolated test accounts and checks ownership, concurrency, quota and authenticated downloads. `pnpm --filter @explainmotion/web e2e:render` additionally needs Redis and a worker; it creates a test account/project and checks a real MP4 response.
+
+## Documents
+
+[00_MVP_DECISIONS.md](00_MVP_DECISIONS.md) defines the current technical boundary. [DESIGN.md](DESIGN.md) records editor behavior. [12_API_DESIGN.md](12_API_DESIGN.md) describes request bodies. [STRATEGY.md](STRATEGY.md) contains business hypotheses, not shipped entitlements or validated market claims.

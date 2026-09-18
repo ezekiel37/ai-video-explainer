@@ -1,5 +1,7 @@
 # LLM Prompts
 
+> Status: Planned prompts, not a wired AI integration. Current prompt generation uses fixed demos; Mermaid and outline adapters are deterministic. No Gemini request, JSON repair loop or TTS call is currently executed.
+
 ## Prompt 1 — Convert explanation into storyboard
 
 Use this as the first Codex/LLM system prompt for the AI orchestration layer.

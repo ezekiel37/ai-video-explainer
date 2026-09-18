@@ -1,66 +1,20 @@
 import { z } from "zod";
-import { getProject, updateProject } from "@/lib/server/store";
+import { requireUser } from "@/lib/server/access";
+import { reserveRender, jobSnapshot } from "@/lib/server/renders";
 import { enqueueRender } from "@/lib/server/queue";
-import { auth } from "@/lib/server/auth";
-import { getEntitlement } from "@/lib/server/entitlements";
-import { recordRender, rendersThisMonth } from "@/lib/server/usage";
 import { errorResponse } from "@/lib/server/http";
-
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-const renderBodySchema = z
-  .object({
-    format: z.enum(["mp4", "gif"]).optional(),
-    orientation: z.enum(["landscape", "portrait"]).optional()
-  })
-  .default({});
-
+const bodySchema = z.object({ requestId: z.string().uuid(), version: z.number().int().positive(), format: z.enum(["mp4", "gif"]).default("mp4"), orientation: z.enum(["landscape", "portrait"]).default("landscape") });
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { id } = await params;
-    z.string().uuid().parse(id);
-    const project = await getProject(id);
-    if (!project) {
-      return Response.json({ message: "Project not found" }, { status: 404 });
-    }
-    if (!project.sceneGraph) {
-      return Response.json({ message: "Project has no scene graph. Plan it first." }, { status: 400 });
-    }
-
-    const session = await auth.api.getSession({ headers: request.headers });
-    const userId = session?.user?.id ?? null;
-    const entitlement = getEntitlement(userId);
-
-    // Enforce the free-tier monthly cap (only trackable for signed-in users).
-    if (userId && entitlement.monthlyVideoLimit !== null) {
-      const used = await rendersThisMonth(userId);
-      if (used >= entitlement.monthlyVideoLimit) {
-        return Response.json(
-          { message: `Free plan limit reached (${entitlement.monthlyVideoLimit}/month). Upgrade to keep rendering.`, plan: entitlement.plan },
-          { status: 402 }
-        );
-      }
-    }
-
-    const body = renderBodySchema.parse(await request.json().catch(() => ({})));
-    const format = body.format ?? "mp4";
-    const orientation = body.orientation ?? "landscape";
-
-    const jobId = await enqueueRender({
-      projectId: project.id,
-      sceneGraph: project.sceneGraph,
-      format,
-      orientation,
-      watermark: entitlement.watermark,
-      notifyEmail: session?.user?.email
-    });
-
-    await updateProject(project.id, { status: "rendering" });
-    await recordRender({ userId, projectId: project.id, format, orientation });
-
-    return Response.json({ jobId, status: "queued", watermark: entitlement.watermark }, { status: 202 });
-  } catch (error) {
-    return errorResponse(error);
-  }
+    const user = await requireUser(request);
+    const id = z.string().uuid().parse((await params).id);
+    const body = bodySchema.parse(await request.json());
+    const job = await reserveRender(user.id, id, body);
+    // The committed job is an outbox entry. Worker reconciliation dispatches it
+    // after Redis outages, without requiring a second reservation or charge.
+    if (job.status === "queued") await enqueueRender(job.id).catch(error => console.error("Render dispatch deferred:", error));
+    return Response.json(jobSnapshot(job), { status: 202 });
+  } catch (error) { return errorResponse(error); }
 }

@@ -1,25 +1,19 @@
 import { z } from "zod";
 import { generateMockSceneGraph } from "@explainmotion/ai";
-import { getProject, updateProject } from "@/lib/server/store";
+import { sceneGraphSchema } from "@explainmotion/schema";
+import { requireProject, requireUser } from "@/lib/server/access";
+import { updateProject } from "@/lib/server/store";
 import { errorResponse } from "@/lib/server/http";
-
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-export async function POST(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+const bodySchema = z.object({ version: z.number().int().positive(), prompt: z.string().trim().min(10).max(20000) });
+export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { id } = await params;
-    z.string().uuid().parse(id);
-    const project = await getProject(id);
-    if (!project) {
-      return Response.json({ message: "Project not found" }, { status: 404 });
-    }
-
-    const sceneGraph = generateMockSceneGraph(project.id, project.prompt);
-    await updateProject(project.id, { status: "planned", sceneGraph });
-
-    return Response.json({ projectId: project.id, sceneGraph });
-  } catch (error) {
-    return errorResponse(error);
-  }
+    const user = await requireUser(request);
+    const id = z.string().uuid().parse((await params).id);
+    await requireProject(id, user.id);
+    const body = bodySchema.parse(await request.json());
+    const sceneGraph = sceneGraphSchema.parse(generateMockSceneGraph(id, body.prompt));
+    return Response.json(await updateProject(id, user.id, body.version, { sceneGraph, title: sceneGraph.title, prompt: body.prompt, sourceType: "prompt" }));
+  } catch (error) { return errorResponse(error); }
 }

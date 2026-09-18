@@ -1,103 +1,18 @@
 # Rendering Pipeline
 
-## Why Remotion
+1. Reserve an owned render with an immutable validated graph in PostgreSQL.
+2. Publish its UUID to BullMQ; the worker dispatcher retries missing publications.
+3. Claim the job with a per-attempt lease and update heartbeat/progress.
+4. `packages/renderer/src/render.ts` bundles the Remotion entry and selects the composition.
+5. Render H.264 MP4 or GIF, using shared scene placement and frame-driven effects.
+6. Keep the file in a shared local volume or upload to private R2/S3.
+7. Commit completion and the unique output key in PostgreSQL; optionally email the project link.
+8. Serve the owner's authenticated media request, including range requests.
 
-Remotion gives the product a deterministic video rendering foundation.
+The job graph never changes if its project is edited during rendering. Output filenames include job and lease UUIDs, preventing Redis counter resets or stale attempts from overwriting another result. A failed attempt is retried once; terminal failure releases the allowance. Durable completed jobs survive Redis cleanup. PostgreSQL and local media still need backups.
 
-Use it to:
+MP4 sizes: landscape 1280×720, portrait 720×1280. GIF uses every second frame. Portrait uses step placement; arrows retain their source/target direction. `ScenePreview` scales the same stage geometry to its container. React Flow is a separate topology aid, not a frame-accurate movie player.
 
-- render React components into video
-- synchronize audio and visuals
-- export MP4
-- render server-side with Node/Bun APIs
-- maintain reusable scene components
+Current animation code is Remotion/SVG (`animation.ts`, `index.tsx`). GSAP's helper is unused. Captions are text; no audio track/TTS is produced. Callouts, explicit edge animation cues and complete emphasis-duration/easing semantics remain renderer work. Do not promise these based on schema enum names alone.
 
-## Why GSAP
-
-GSAP should be used for:
-
-- timeline choreography
-- SVG path tracing
-- arrow animation
-- precise sequencing
-- chained motion
-- complex reveal timings
-
-## Recommended rendering flow
-
-```text
-SceneGraph JSON
-  ↓
-Normalize layout
-  ↓
-Resolve assets
-  ↓
-Compile to Remotion composition props
-  ↓
-Generate audio
-  ↓
-Generate timeline cues
-  ↓
-Render MP4 with Remotion worker
-```
-
-## Remotion components
-
-Suggested structure:
-
-```text
-/apps/web/remotion/
-  Root.tsx
-  compositions/
-    ExplainerComposition.tsx
-  scenes/
-    FlowScene.tsx
-    CompareScene.tsx
-    HubScene.tsx
-  primitives/
-    NodeCard.tsx
-    Arrow.tsx
-    Callout.tsx
-    Avatar.tsx
-    Badge.tsx
-  animation/
-    useSceneTimeline.ts
-    gsapTimeline.ts
-```
-
-## Frame-based animation
-
-Prefer converting animation timings into frames.
-
-Example:
-
-```ts
-const startFrame = secondsToFrames(cue.startTime);
-const durationFrames = secondsToFrames(cue.duration);
-```
-
-This helps keep preview and final render consistent.
-
-## Audio sync
-
-Store cue markers:
-
-```json
-{
-  "sceneId": "scene_03",
-  "cues": [
-    {
-      "id": "cue_01",
-      "time": 3.2,
-      "action": "highlight-node",
-      "target": "api_server"
-    }
-  ]
-}
-```
-
-## Warning
-
-Do not rely on live browser timing for exported video.
-
-The exported video must be driven by deterministic frame calculations.
+Regression tests cover schema/import/layout boundaries. The real-render smoke script additionally needs Chromium, a worker, Redis and PostgreSQL; see README.md.

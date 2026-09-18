@@ -1,5 +1,7 @@
 # Validation and Guardrails
 
+> Status: Design guidance. Enforced checks live in `packages/schema/src/index.ts` and API routes. Current checks include references, unique IDs, animation bounds, graph ownership and duration limits. Automated repair, semantic correctness scoring and full layout-quality scoring remain planned.
+
 ## Why guardrails matter
 
 This product fails if outputs are messy.

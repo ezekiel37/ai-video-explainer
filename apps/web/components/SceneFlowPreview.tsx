@@ -1,13 +1,25 @@
 "use client";
 
-import ReactFlow, { Background, Controls, MarkerType, type Edge, type Node } from "reactflow";
+import ReactFlow, { Background, Controls, MarkerType, type Edge, type Node, type ReactFlowInstance } from "reactflow";
 import "reactflow/dist/style.css";
+import { useEffect, useRef, useState } from "react";
+import { layoutScene } from "@explainmotion/layout";
 import type { Scene } from "@explainmotion/schema";
 
 export function SceneFlowPreview({ scene }: { scene: Scene }) {
-  const nodes: Node[] = scene.nodes.map((node, index) => ({
+  const holder = useRef<HTMLDivElement>(null);
+  const [flow, setFlow] = useState<ReactFlowInstance | null>(null);
+  useEffect(() => {
+    if (!flow || !holder.current) return;
+    let frame = 0;
+    const fit = () => { cancelAnimationFrame(frame); frame = requestAnimationFrame(() => flow.fitView({ padding: 0.2, minZoom: 0.05, maxZoom: 1 })); };
+    const observer = new ResizeObserver(fit);
+    observer.observe(holder.current); fit();
+    return () => { cancelAnimationFrame(frame); observer.disconnect(); };
+  }, [flow, scene]);
+  const nodes: Node[] = layoutScene(scene).nodes.map((node) => ({
     id: node.id,
-    position: scene.layout === "horizontal-flow" ? { x: index * 210, y: index % 2 === 0 ? 30 : 128 } : { x: 0, y: index * 118 },
+    position: { x: node.x, y: node.y },
     data: {
       label: node.label
     },
@@ -38,9 +50,11 @@ export function SceneFlowPreview({ scene }: { scene: Scene }) {
   }));
 
   return (
-    <ReactFlow nodes={nodes} edges={edges} fitView nodesDraggable={false} nodesConnectable={false} panOnScroll>
+    <div ref={holder} style={{ width: "100%", height: 360 }}>
+    <ReactFlow onInit={setFlow} minZoom={0.05} maxZoom={2} nodes={nodes} edges={edges} fitView nodesDraggable={false} nodesConnectable={false} panOnScroll>
       <Background color="#d4d4d8" gap={20} />
       <Controls showInteractive={false} />
     </ReactFlow>
+    </div>
   );
 }

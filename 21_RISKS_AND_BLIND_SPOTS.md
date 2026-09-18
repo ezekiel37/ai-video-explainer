@@ -1,5 +1,7 @@
 # Risks and Blind Spots
 
+> Status: Risk register, not completed controls. For implemented fixes and remaining release gates see `ROADMAP.md` and `CODEX_HANDOFF.md`.
+
 ## Risk 1 — Output quality
 
 Bad visuals kill this product quickly.

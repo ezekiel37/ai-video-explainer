@@ -1,127 +1,13 @@
 # System Architecture
 
-## Core pipeline
+Two application services share PostgreSQL and Redis. `apps/web` is the Next.js studio, Better Auth endpoint and API. `apps/worker` consumes BullMQ jobs and calls Remotion. There is no standalone Fastify service.
 
-```text
-Prompt
-  ↓
-LLM Orchestrator
-  ↓
-Storyboard JSON
-  ↓
-Scene Graph JSON
-  ↓
-Layout Engine
-  ↓
-Animation Planner
-  ↓
-TTS Voiceover
-  ↓
-Timeline Sync Engine
-  ↓
-Remotion Renderer
-  ↓
-Video Output
-```
+The browser performs local demo generation/import and scene editing. An explicit save sends the source, validated graph and expected project version. PostgreSQL rejects stale writes with a 409. Opening a project restores its source, graph and latest durable render status.
 
-## Key architectural rule
+Rendering reserves a PostgreSQL job under an account row lock, atomically enforcing the free allowance and one active job. Its UUID is both the idempotency key and queue ID. The reservation stores an immutable graph/version and output settings; enqueueing is best effort after commit. A worker dispatcher checks PostgreSQL every 15 seconds to recover missing queue entries. This is an outbox pattern without requiring a distributed database/Redis transaction.
 
-The LLM does not generate raw HTML, SVG, CSS, or final coordinates directly.
+The worker uses a per-attempt lease token and heartbeat, renders to a unique path, stores private media, then marks the durable job complete. Browser polling is bounded and stops on terminal states or repeated errors. A project can be reopened to recover status after refresh or Redis cleanup.
 
-The LLM generates structured intent.
+Downloads require the job owner's session and support byte ranges. Local mode uses a shared volume; object storage mode streams private R2/S3 responses. Optional completion email links to the authenticated project page.
 
-The system validates and renders it.
-
-## Components
-
-### 1. Prompt Analyzer
-
-Takes raw user explanation and extracts:
-
-- topic
-- audience
-- tone
-- domain
-- entities
-- process steps
-- dependencies
-- expected video length
-- output format
-
-### 2. Storyboard Generator
-
-Creates scenes:
-
-- title
-- narration
-- visible elements
-- transition idea
-- key visual emphasis
-
-### 3. Scene Graph Generator
-
-Converts storyboard into machine-readable objects:
-
-- nodes
-- edges
-- groups
-- callouts
-- icons
-- assets
-- animation intents
-
-### 4. Layout Engine
-
-Takes scene graph and assigns deterministic layout:
-
-- position
-- alignment
-- spacing
-- edge routing
-- scale
-- collision checks
-
-### 5. Animation Planner
-
-Assigns animation presets:
-
-- reveal order
-- arrow movement
-- highlight timing
-- camera zoom
-- transitions
-
-### 6. TTS Engine
-
-Generates voiceover audio.
-
-First build:
-
-- mock TTS/audio
-
-Later provider:
-
-- Gemini TTS / Google TTS stack
-
-### 7. Timeline Sync Engine
-
-Aligns animation actions to narration timing.
-
-### 8. Renderer
-
-Renders video using:
-
-- Remotion
-- React
-- SVG
-- GSAP timelines where needed
-
-### 9. Worker Queue
-
-Rendering happens asynchronously on Hetzner.
-
-Use:
-
-- BullMQ
-- Redis
-- Node.js workers
+Future LLM planning, TTS and synchronization are separate planned stages. The current execution path does not call those providers.

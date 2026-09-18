@@ -19,6 +19,7 @@ const ENTITLEMENTS: Record<Plan, Omit<Entitlement, "plan">> = {
  * single place to swap in a real lookup (a `plan` column / Stripe entitlement) later.
  */
 export function getPlan(_userId: string | null): Plan {
+  void _userId;
   return "free";
 }
 

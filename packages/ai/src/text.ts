@@ -57,7 +57,7 @@ function parseSections(input: string): Section[] {
   return sections.map((section) => ({ ...section, items: section.items.filter(Boolean) })).filter((section) => section.items.length > 0);
 }
 
-const MAX_SCENES = 6;
+const MAX_SCENES = 8;
 const MAX_NODES_PER_SCENE = 8;
 
 /**
@@ -66,19 +66,26 @@ const MAX_NODES_PER_SCENE = 8;
  * LLM pass later — this is the deterministic baseline. Throws if there's no content.
  */
 export function textToSceneGraph(projectId: string, input: string): SceneGraph {
-  const sections = parseSections(input).slice(0, MAX_SCENES);
+  const sections = parseSections(input).flatMap(section => {
+    const chunks: Section[] = [];
+    for (let offset = 0; offset < section.items.length; offset += MAX_NODES_PER_SCENE) {
+      chunks.push({ title: offset ? `${section.title} (continued)` : section.title, items: section.items.slice(offset, offset + MAX_NODES_PER_SCENE) });
+    }
+    return chunks;
+  });
+  if (sections.length > MAX_SCENES) throw new Error("This outline needs more than eight scenes. Split it into smaller explanations before importing.");
   if (sections.length === 0) {
     throw new Error("No content found to turn into scenes.");
   }
 
   const scenes = sections.map((section, sceneIndex) => {
-    const items = section.items.slice(0, MAX_NODES_PER_SCENE);
+    const items = section.items;
     const nodes: SceneNode[] = items.map((item, index) => ({
       id: `n_${sceneIndex + 1}_${index + 1}`,
       type: "plain-card",
       label: toLabel(item),
       importance: index === 0 ? "primary" : "secondary",
-      metadata: {}
+      metadata: { sourceText: item }
     }));
 
     const edges = nodes.slice(1).map((node, index) => ({
@@ -132,6 +139,6 @@ export function textToSceneGraph(projectId: string, input: string): SceneGraph {
 
 /** Auto-detect: Mermaid diagrams go to the diagram parser, everything else to text. */
 export function contentToSceneGraph(projectId: string, content: string): SceneGraph {
-  const looksLikeMermaid = /^\s*(?:flowchart|graph)\b/i.test(content) || /--?>|-\.->|==>/.test(content);
+  const looksLikeMermaid = /^\s*(?:```mermaid|flowchart\b|graph\b)/i.test(content);
   return looksLikeMermaid ? mermaidToSceneGraph(projectId, content) : textToSceneGraph(projectId, content);
 }

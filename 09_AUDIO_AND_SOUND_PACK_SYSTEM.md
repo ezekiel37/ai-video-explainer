@@ -1,5 +1,7 @@
 # Audio And Sound Pack System
 
+> Status: Future audio design. Current MP4/GIF exports are silent. Voice schema fields and narration captions do not create audio. TTS, sound packs, mixing and timing synchronization described below remain unimplemented.
+
 ## Audio Philosophy
 
 For the first usable build, use mock TTS/audio and prove deterministic rendering first. Real TTS and sound packs come after the MP4 landscape render path is reliable.

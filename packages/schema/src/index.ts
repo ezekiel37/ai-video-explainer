@@ -63,7 +63,7 @@ export const sceneAnimationSchema = z.object({
   id: z.string().min(1),
   type: animationTypeSchema,
   target: z.string().min(1),
-  startTimeSeconds: z.number().min(0),
+  startTimeSeconds: z.number().finite().min(0),
   durationMs: z.number().int().positive().max(5000),
   easing: z.enum(["linear", "easeOut", "easeInOut"]).default("easeOut")
 });
@@ -78,10 +78,25 @@ export const sceneSchema = z
     nodes: z.array(sceneNodeSchema).min(1).max(8),
     edges: z.array(sceneEdgeSchema).max(12),
     callouts: z.array(calloutSchema).max(4).default([]),
-    animations: z.array(sceneAnimationSchema).default([])
+    animations: z.array(sceneAnimationSchema).max(64).default([])
   })
   .superRefine((scene, context) => {
+    for (const [name, items] of Object.entries({ nodes: scene.nodes, edges: scene.edges, callouts: scene.callouts, animations: scene.animations })) {
+      const ids = new Set<string>();
+      for (const [index, item] of items.entries()) {
+        if (ids.has(item.id)) context.addIssue({ code: z.ZodIssueCode.custom, path: [name, index, "id"], message: "IDs must be unique within their collection." });
+        ids.add(item.id);
+      }
+    }
     const nodeIds = new Set(scene.nodes.map((node) => node.id));
+    for (const edge of scene.edges) {
+      if (nodeIds.has(edge.id)) context.addIssue({ code: z.ZodIssueCode.custom, path: ["edges"], message: "Node and edge IDs must not overlap." });
+    }
+    for (const [index, animation] of scene.animations.entries()) {
+      if (animation.startTimeSeconds + animation.durationMs / 1000 > scene.durationSeconds) {
+        context.addIssue({ code: z.ZodIssueCode.custom, path: ["animations", index], message: "Animation must finish within its scene. Increase scene duration or move the animation earlier." });
+      }
+    }
 
     for (const edge of scene.edges) {
       if (!nodeIds.has(edge.from)) {
@@ -130,6 +145,9 @@ export const sceneGraphSchema = z.object({
   style: projectStyleSchema.default("minimal-tech"),
   voice: voiceSchema.default({ provider: "mock", voiceId: "default", speed: 1 }),
   scenes: z.array(sceneSchema).min(1).max(8)
+}).superRefine((graph, context) => {
+  if (new Set(graph.scenes.map(scene => scene.id)).size !== graph.scenes.length) context.addIssue({ code: z.ZodIssueCode.custom, path: ["scenes"], message: "Scene IDs must be unique." });
+  if (graph.scenes.reduce((sum, scene) => sum + scene.durationSeconds, 0) > 90) context.addIssue({ code: z.ZodIssueCode.custom, path: ["scenes"], message: "The total video duration must not exceed 90 seconds." });
 });
 
 export const storyboardSceneSchema = z.object({

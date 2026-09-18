@@ -1,5 +1,6 @@
 import type { CSSProperties, ReactNode } from "react";
-import { Fragment } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
+import { stageSize } from "./stage";
 import { AbsoluteFill, Series, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Scene, SceneEdge, SceneGraph, SceneNode } from "@explainmotion/schema";
 import { CARD_HEIGHT, CARD_WIDTH, layoutScene, type PositionedNode } from "@explainmotion/layout";
@@ -18,15 +19,16 @@ export { FPS, getSceneTimings, totalDurationInFrames } from "./animation";
 export type ScenePreviewProps = {
   scene: Scene;
   activeNodeId?: string;
+  orientation?: Orientation;
 };
 
 export type Orientation = "landscape" | "portrait";
 
 /** Video stage dimensions (canvas minus padding, title and caption). */
-const STAGE_WIDTH = 1184;
-const STAGE_HEIGHT = 480;
-const PORTRAIT_STAGE_WIDTH = 624;
-const PORTRAIT_STAGE_HEIGHT = 1000;
+const STAGE_WIDTH = stageSize("landscape").width;
+const STAGE_HEIGHT = stageSize("landscape").height;
+const PORTRAIT_STAGE_WIDTH = stageSize("portrait").width;
+const PORTRAIT_STAGE_HEIGHT = stageSize("portrait").height;
 
 function truncate(text: string, max: number): string {
   return text.length > max ? `${text.slice(0, max - 1)}…` : text;
@@ -168,7 +170,7 @@ function NodeCard({ node, x, y, opacity, translateX, translateY, scale, active }
         >
           <NodeIcon kind={kind} color="#ffffff" size={19} />
         </div>
-        <strong style={{ fontSize: 14, lineHeight: 1.15 }}>{node.label}</strong>
+        <strong style={{ fontSize: 14, lineHeight: 1.15, overflowWrap: "anywhere" }}>{node.label}</strong>
         <span style={{ fontSize: 10.5, color: "#9ca3af", textTransform: "uppercase", letterSpacing: 0.4 }}>{node.type.replace("-card", "")}</span>
       </div>
     </div>
@@ -200,10 +202,12 @@ function TraceArrow({
   flow?: number;
 }) {
   // Anchor to the card edges and true vertical centers so the line touches both boxes.
-  const startX = from.x + CARD_WIDTH;
-  const startY = from.y + CARD_HEIGHT / 2;
-  const endX = to.x;
-  const endY = to.y + CARD_HEIGHT / 2;
+  const vertical = Math.abs(from.x - to.x) < CARD_WIDTH / 2;
+  const forward = vertical ? to.y >= from.y : to.x >= from.x;
+  const startX = vertical ? from.x + CARD_WIDTH / 2 : from.x + (forward ? CARD_WIDTH : 0);
+  const startY = vertical ? from.y + (forward ? CARD_HEIGHT : 0) : from.y + CARD_HEIGHT / 2;
+  const endX = vertical ? to.x + CARD_WIDTH / 2 : to.x + (forward ? 0 : CARD_WIDTH);
+  const endY = vertical ? to.y + (forward ? 0 : CARD_HEIGHT) : to.y + CARD_HEIGHT / 2;
   const midX = (startX + endX) / 2;
 
   // Long, flowing curve: horizontal tangents at both ends with extended control
@@ -215,7 +219,9 @@ function TraceArrow({
   const sameRow = Math.abs(dy) < 6;
   const c1y = sameRow ? startY - 40 : startY;
   const c2y = sameRow ? endY - 40 : endY;
-  const d = `M ${startX} ${startY} C ${startX + handle} ${c1y}, ${endX - handle} ${c2y}, ${endX} ${endY}`;
+  const d = vertical
+    ? `M ${startX} ${startY} C ${startX} ${(startY + endY) / 2}, ${endX} ${(startY + endY) / 2}, ${endX} ${endY}`
+    : `M ${startX} ${startY} C ${startX + (forward ? handle : -handle)} ${c1y}, ${endX - (forward ? handle : -handle)} ${c2y}, ${endX} ${endY}`;
   const markerId = `arrowhead-${id}`;
 
   return (
@@ -251,9 +257,9 @@ function TraceArrow({
       ) : null}
       {label && progress > 0.6 ? (
         <text
-          x={midX}
-          y={Math.min(from.y, to.y) - 8}
-          textAnchor="middle"
+          x={vertical ? midX + 16 : midX}
+          y={vertical ? (startY + endY) / 2 : Math.min(from.y, to.y) - 8}
+          textAnchor={vertical ? "start" : "middle"}
           fill="#52525b"
           fontSize={11}
           opacity={interpolate(progress, [0.6, 0.85], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" })}
@@ -297,23 +303,30 @@ function staticState(node: PositionedNode, active: boolean): NodeRenderState {
  * Lightweight, non-animated preview used by the web editor. Everything is fully
  * revealed; the selected node gets an outline. (The editor edits meaning, not motion.)
  */
-export function ScenePreview({ scene, activeNodeId }: ScenePreviewProps) {
-  const positioned = layoutScene(scene);
+export function ScenePreview({ scene, activeNodeId, orientation = "landscape" }: ScenePreviewProps) {
+  const holder = useRef<HTMLDivElement>(null);
+  const [width, setWidth] = useState(0);
+  useEffect(() => {
+    if (!holder.current) return;
+    const observer = new ResizeObserver(([entry]) => setWidth(entry.contentRect.width));
+    observer.observe(holder.current); return () => observer.disconnect();
+  }, []);
+  const stage = stageSize(orientation);
+  const effectiveLayout = orientation === "portrait" ? "step-sequence" : scene.layout;
+  const positioned = layoutScene({ ...scene, layout: effectiveLayout }, { width: stage.width, height: stage.height });
   const nodeMap = new Map(positioned.nodes.map((node) => [node.id, node]));
-  const isStep = scene.layout === "step-sequence";
-  const scale = fitScale(positioned.nodes, 1180, 540);
+  const isStep = effectiveLayout === "step-sequence";
+  const scale = fitScale(positioned.nodes, stage.width, stage.height) * (width / stage.width);
 
   return (
-    <div style={{ position: "relative", width: "100%", height: "100%", minHeight: isStep ? 430 : 380, overflow: "hidden" }}>
+    <div ref={holder} style={{ position: "relative", width: "100%", aspectRatio: `${stage.width}/${stage.height}`, overflow: "hidden" }}>
       <div style={{ position: "absolute", inset: 0, transform: `scale(${scale})`, transformOrigin: "top left" }}>
-        {!isStep
-          ? positioned.edges.map((edge) => {
+        {positioned.edges.map((edge) => {
               const from = nodeMap.get(edge.from);
               const to = nodeMap.get(edge.to);
               if (!from || !to) return null;
               return <TraceArrow key={edge.id} id={edge.id} from={from} to={to} label={edge.label} progress={1} />;
-            })
-          : null}
+            })}
         {positioned.nodes.map((node, index) => (
           <Fragment key={node.id}>
             {isStep ? <StepBadge index={index} top={node.y} opacity={1} /> : null}
@@ -374,8 +387,7 @@ function AnimatedScene({ scene, orientation }: { scene: Scene; orientation: Orie
 
       <div style={{ position: "relative", flex: 1, marginTop: 24 }}>
         <div style={{ position: "absolute", inset: 0, transform: `scale(${scale})`, transformOrigin: "top left" }}>
-          {!isStep
-            ? positioned.edges.map((edge: SceneEdge) => {
+          {positioned.edges.map((edge: SceneEdge) => {
                 const from = nodeMap.get(edge.from);
                 const to = nodeMap.get(edge.to);
                 if (!from || !to) return null;
@@ -386,8 +398,7 @@ function AnimatedScene({ scene, orientation }: { scene: Scene; orientation: Orie
                   easing: easingFor("easeInOut")
                 });
                 return <TraceArrow key={edge.id} id={edge.id} from={from} to={to} label={edge.label} progress={progress} flow={frame} />;
-              })
-            : null}
+              })}
           {positioned.nodes.map((node, index) => {
             const state = animatedNodeState(scene, node, index, frame, fps);
             return (

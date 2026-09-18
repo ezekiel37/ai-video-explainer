@@ -44,7 +44,7 @@ function cleanLabel(raw: string): string {
 
 /** Parse a Mermaid flowchart (the common `flowchart`/`graph` subset) into nodes + edges. */
 export function parseMermaid(input: string): ParsedMermaid {
-  const rawLines = input
+  const rawLines = input.replace(/^\s*```(?:mermaid)?\s*\n/i, "").replace(/\n\s*```\s*$/, "")
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter((line) => line.length > 0 && !line.startsWith("%%"));
@@ -55,11 +55,15 @@ export function parseMermaid(input: string): ParsedMermaid {
     const header = line.match(/^(?:flowchart|graph)\s+([A-Za-z]{1,2})\b/i);
     if (header) {
       direction = header[1].toUpperCase();
+      if (!["LR", "RL", "TB", "TD", "BT"].includes(direction)) throw new Error("Unsupported Mermaid direction.");
+      const remainder = line.slice(header[0].length).replace(/^\s*;?\s*/, "");
+      if (remainder) body.push(remainder);
       continue;
     }
-    if (/^(?:flowchart|graph)\b/i.test(line)) continue;
+    if (/^(?:flowchart|graph)\b/i.test(line)) throw new Error("Specify a Mermaid direction, for example flowchart LR.");
     const lower = line.toLowerCase();
-    if (IGNORED_PREFIXES.some((prefix) => lower.startsWith(prefix))) continue;
+    if (/^subgraph\b/.test(lower)) throw new Error("Subgraphs are not supported yet. Flatten the diagram explicitly before importing.");
+    if (IGNORED_PREFIXES.some((prefix) => new RegExp(`^${prefix}\\b`).test(lower))) continue;
     body.push(line);
   }
 
@@ -85,8 +89,8 @@ export function parseMermaid(input: string): ParsedMermaid {
   // Second pass: edges. Strip shapes (keep ids), normalize `-- text -->` to `-->|text|`.
   const edges: ParsedEdge[] = [];
   for (const rawLine of body) {
-    for (const statement of rawLine.split(";")) {
-      let line = statement.replace(NODE_DEF, "$1");
+    for (const statement of rawLine.replace(NODE_DEF, "$1").split(";")) {
+      let line = statement;
       line = line.replace(/--\s+([^>|-][^>|]*?)\s+-->/g, "-->|$1|");
       const tokens = line
         .split(/(-->|---|-\.->|-\.-|==>|===)/)
@@ -105,6 +109,7 @@ export function parseMermaid(input: string): ParsedMermaid {
         }
         const id = rest.trim().split(/\s+/)[0];
         if (!id) continue;
+        if (!/^[A-Za-z0-9_]+$/.test(rest.trim())) throw new Error(`Unsupported Mermaid statement: ${rawLine}. Use explicit node IDs and supported arrows.`);
         addNode(id);
         if (prev) edges.push({ from: prev, to: id, label: label || undefined });
         prev = id;
@@ -137,19 +142,13 @@ function shapeToNodeType(shape: MermaidShape): SceneNode["type"] {
 const MAX_NODES_PER_SCENE = 8;
 const MAX_EDGES_PER_SCENE = 12;
 
-function chunk<T>(items: T[], size: number): T[][] {
-  const out: T[][] = [];
-  for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size));
-  return out;
-}
-
 function buildNarration(labels: string[]): string {
   const first = labels[0];
   const last = labels[labels.length - 1];
   const text =
     labels.length === 1
       ? `This step highlights ${first}.`
-      : `${first} flows through ${labels.length} steps to ${last}.`;
+      : `This scene shows ${labels.length} connected items, including ${first} and ${last}.`;
   return text.length < 8 ? `${text} Overview of the flow.` : text.slice(0, 220);
 }
 
@@ -164,21 +163,41 @@ export function mermaidToSceneGraph(projectId: string, input: string): SceneGrap
   }
 
   const layout = ["TB", "TD", "BT"].includes(parsed.direction) ? "step-sequence" : "horizontal-flow";
-  const groups = chunk(parsed.nodes, MAX_NODES_PER_SCENE);
+  // Cover every relationship. Nodes may repeat across scenes to provide context
+  // for a cross-scene connection; no edge is filtered away at a chunk boundary.
+  const nodeById = new Map(parsed.nodes.map(node => [node.id, node]));
+  const groups: { nodes: ParsedNode[]; edges: ParsedEdge[] }[] = [];
+  let current: { nodes: ParsedNode[]; edges: ParsedEdge[] } = { nodes: [], edges: [] };
+  const flush = () => { if (current.nodes.length) groups.push(current); current = { nodes: [], edges: [] }; };
+  const covered = new Set<string>();
+  for (const edge of parsed.edges) {
+    const needed = [edge.from, edge.to].filter((id, index, ids) => ids.indexOf(id) === index && !current.nodes.some(node => node.id === id));
+    if (current.nodes.length + needed.length > MAX_NODES_PER_SCENE || current.edges.length >= MAX_EDGES_PER_SCENE) flush();
+    for (const id of [edge.from, edge.to]) {
+      if (!current.nodes.some(node => node.id === id)) current.nodes.push(nodeById.get(id)!);
+      covered.add(id);
+    }
+    current.edges.push(edge);
+  }
+  for (const node of parsed.nodes.filter(node => !covered.has(node.id))) {
+    if (current.nodes.length >= MAX_NODES_PER_SCENE) flush();
+    current.nodes.push(node);
+  }
+  flush();
+  if (groups.length > 8) throw new Error("This diagram needs more than eight scenes. Split it into smaller explanations before importing.");
+  if (["RL", "BT"].includes(parsed.direction)) groups.forEach(group => group.nodes.reverse());
 
   const scenes = groups.map((group, sceneIndex) => {
-    const ids = new Set(group.map((node) => node.id));
-    const nodes: SceneNode[] = group.map((node, index) => ({
+    const nodes: SceneNode[] = group.nodes.map((node, index) => ({
       id: node.id,
       type: shapeToNodeType(node.shape),
       label: node.label.slice(0, 42),
       importance: index === 0 ? "primary" : "secondary",
-      metadata: {}
+      metadata: { sourceLabel: node.label }
     }));
 
-    const edges = parsed.edges
-      .filter((edge) => ids.has(edge.from) && ids.has(edge.to))
-      .slice(0, MAX_EDGES_PER_SCENE)
+    if (group.edges.some(edge => (edge.label?.length ?? 0) > 48)) throw new Error("An edge label exceeds 48 characters. Shorten it explicitly before importing.");
+    const edges = group.edges
       .map((edge, index) => ({
         id: `edge_${sceneIndex + 1}_${index + 1}`,
         from: edge.from,

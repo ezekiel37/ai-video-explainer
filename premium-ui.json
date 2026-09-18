@@ -1,0 +1,7 @@
+{
+  "profile": "product-admin",
+  "canonicalMap": "DESIGN.md",
+  "sourceRoots": ["apps/web", "packages/renderer"],
+  "requiredCapabilities": ["Select/Listbox", "Form", "CRUD", "Scrollbar"],
+  "ownership": {"Select/Listbox": "native", "Date": "native"}
+}

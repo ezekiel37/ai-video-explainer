@@ -1,66 +1,21 @@
-import { eq } from "drizzle-orm";
-import { generateMockSceneGraph } from "@explainmotion/ai";
+import { and, desc, eq, sql } from "drizzle-orm";
 import type { SceneGraph } from "@explainmotion/schema";
 import { db } from "./db/client";
 import { projects, type ProjectRow } from "./db/schema";
+import { HttpError } from "./http";
 
-export type ProjectRecord = ProjectRow;
-
-export async function createProject(input: {
-  title: string;
-  prompt: string;
-  format: string;
-  style: string;
-  userId?: string | null;
-}): Promise<ProjectRecord> {
-  const [row] = await db
-    .insert(projects)
-    .values({
-      title: input.title,
-      prompt: input.prompt,
-      format: input.format,
-      style: input.style,
-      status: "draft",
-      userId: input.userId ?? null
-    })
-    .returning();
+export async function createProject(input: { title: string; prompt: string; sourceType: string; userId: string }) {
+  const [row] = await db.insert(projects).values(input).returning();
   return row;
 }
-
-export async function getProject(id: string): Promise<ProjectRecord | undefined> {
-  const [row] = await db.select().from(projects).where(eq(projects.id, id)).limit(1);
-  return row;
+export async function listProjects(userId: string) {
+  return db.select({ id: projects.id, title: projects.title, version: projects.version, updatedAt: projects.updatedAt })
+    .from(projects).where(eq(projects.userId, userId)).orderBy(desc(projects.updatedAt)).limit(100);
 }
-
-export async function updateProject(
-  id: string,
-  patch: Partial<Pick<ProjectRecord, "status" | "sceneGraph" | "title">>
-): Promise<ProjectRecord | undefined> {
-  const [row] = await db
-    .update(projects)
-    .set({ ...patch, updatedAt: new Date() })
-    .where(eq(projects.id, id))
-    .returning();
+export async function updateProject(id: string, userId: string, version: number,
+  patch: Partial<Pick<ProjectRow, "sceneGraph" | "title" | "prompt" | "sourceType">> & { sceneGraph?: SceneGraph }) {
+  const [row] = await db.update(projects).set({ ...patch, version: sql`${projects.version} + 1`, updatedAt: new Date() })
+    .where(and(eq(projects.id, id), eq(projects.userId, userId), eq(projects.version, version))).returning();
+  if (!row) throw new HttpError(409, "This project changed in another tab. Copy your edits before reloading the saved version.");
   return row;
-}
-
-const DEMO_PROJECT_ID = "4b83f3c8-95a6-4ed0-9e89-53edac5b28c4";
-const DEMO_PROMPT =
-  "Explain how a user sends money from User A to User B in a fintech app. Show checks, ledger updates, notifications, and success.";
-
-/** Idempotently seed the demo project so the studio has something to open. */
-export async function seedDemoProject(): Promise<void> {
-  const sceneGraph: SceneGraph = generateMockSceneGraph(DEMO_PROJECT_ID, DEMO_PROMPT);
-  await db
-    .insert(projects)
-    .values({
-      id: DEMO_PROJECT_ID,
-      title: "How Money Transfer Works",
-      prompt: DEMO_PROMPT,
-      status: "planned",
-      format: "landscape",
-      style: "minimal-tech",
-      sceneGraph
-    })
-    .onConflictDoNothing({ target: projects.id });
 }

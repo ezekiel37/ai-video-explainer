@@ -17,6 +17,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@aws-sdk/client-s3':
+        specifier: ^3.1063.0
+        version: 3.1063.0
       '@explainmotion/ai':
         specifier: workspace:*
         version: link:../../packages/ai
@@ -72,6 +75,9 @@ importers:
         specifier: ^5.0.3
         version: 5.0.13(@types/react@19.2.14)(react@19.2.6)(use-sync-external-store@1.6.0(react@19.2.6))
     devDependencies:
+      '@eslint/eslintrc':
+        specifier: ^3.3.5
+        version: 3.3.5
       '@types/pg':
         specifier: ^8.20.0
         version: 8.20.0
@@ -108,6 +114,9 @@ importers:
 
   apps/worker:
     dependencies:
+      pg:
+        specifier: ^8.21.0
+        version: 8.21.0
       '@aws-sdk/client-s3':
         specifier: ^3.1063.0
         version: 3.1063.0
@@ -127,6 +136,9 @@ importers:
         specifier: ^5.4.2
         version: 5.10.1
     devDependencies:
+      '@types/pg':
+        specifier: ^8.20.0
+        version: 8.20.0
       tsx:
         specifier: ^4.19.2
         version: 4.22.0

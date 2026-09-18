@@ -1,4 +1,3 @@
-import type { SceneGraph } from "@explainmotion/schema";
 
 export const RENDER_QUEUE_NAME = "render-video";
 
@@ -17,6 +16,7 @@ export type RenderJobStatus = (typeof renderJobStatuses)[number];
 export type RenderJobSnapshot = {
   id: string;
   projectId: string;
+  projectVersion?: number;
   status: RenderJobStatus;
   progress: number;
   outputUrl?: string;
@@ -26,21 +26,9 @@ export type RenderJobSnapshot = {
 export type RenderFormat = "mp4" | "gif";
 export type RenderOrientation = "landscape" | "portrait";
 
-/** Payload the API enqueues and the worker renders. */
-export type RenderJobData = {
-  projectId: string;
-  sceneGraph: SceneGraph;
-  format?: RenderFormat;
-  orientation?: RenderOrientation;
-  watermark?: boolean;
-  /** When set (and Brevo is configured), the worker emails this address on completion. */
-  notifyEmail?: string;
-};
-
-/** What the worker returns when a render finishes. */
-export type RenderJobResult = {
-  outputUrl: string;
-};
+/** Queue payload references an immutable, owner-scoped database job. */
+export type RenderJobData = { renderJobId: string };
+export type RenderJobResult = { outputKey: string };
 
 /** Map a BullMQ job state to our render status vocabulary. */
 export function mapJobStateToStatus(state: string): RenderJobStatus {

@@ -1,5 +1,7 @@
 # Scene Graph Schema
 
+> Status: Example schema discussion. The executable source of truth is `packages/schema/src/index.ts`: it also enforces unique scene/local IDs, references, animation end times and a 90-second total ceiling. Some accepted animation/callout vocabulary is not rendered yet; see `07_RENDERING_PIPELINE.md`.
+
 ## Principle
 
 The scene graph is the source of truth.
